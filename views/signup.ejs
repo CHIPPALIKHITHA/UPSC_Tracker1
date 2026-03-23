@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign Up</title>
+  <link rel="stylesheet" href="/styles/main.css">
+</head>
+<body>
+
+<div class="background">
+  <div class="signup-box">
+    <h1>SIGN UP</h1>
+
+    <form action="/signup" method="POST" onsubmit="return validatePasswords()">
+      
+      <label>Email</label>
+      <input type="email" name="email" placeholder="Enter your email" required>
+
+      <label>Password</label>
+      <input type="password" id="password" name="password" placeholder="Enter password" required>
+
+      <small>
+        Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character.
+      </small>
+
+      <label>Re-enter Password</label>
+      <input type="password" id="confirmPassword" placeholder="Re-enter password" required>
+
+      <button type="submit">Submit</button>
+    </form>
+
+    <p>Already registered? <a href="/login">Login</a></p>
+  </div>
+</div>
+
+<script>
+function validatePasswords() {
+  const pass = document.getElementById('password').value;
+  const confirm = document.getElementById('confirmPassword').value;
+
+  const strongPasswordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#!^()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+
+  if (pass !== confirm) {
+    alert("Passwords do not match!");
+    return false;
+  }
+
+  if (!strongPasswordRegex.test(pass)) {
+    alert("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.");
+    return false;
+  }
+
+  return true;
+}
+</script>
+
+</body>
+</html>

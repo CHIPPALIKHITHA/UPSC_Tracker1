@@ -1,0 +1,141 @@
+<!-- SETTINGS BUTTON IN SIDEBAR -->
+<li id="openSettingsBtn" class="settings-trigger">
+  <i class="fas fa-cog"></i> Settings
+</li>
+
+<!-- SETTINGS MODAL -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-modal">
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <button type="button" class="settings-close-btn" id="closeSettingsBtn">&times;</button>
+    </div>
+
+    <form id="settingsForm" class="settings-form">
+      <div class="settings-field">
+        <label for="notifications_enabled">Notifications</label>
+        <select id="notifications_enabled" name="notifications_enabled">
+          <option value="true">On</option>
+          <option value="false">Off</option>
+        </select>
+      </div>
+
+      <div class="settings-field">
+        <label for="language">Language</label>
+        <select id="language" name="language">
+          <option value="English">English</option>
+          <option value="Hindi">Hindi</option>
+          <option value="Telugu">Telugu</option>
+          <option value="Tamil">Tamil</option>
+          <option value="Kannada">Kannada</option>
+          <option value="Malayalam">Malayalam</option>
+        </select>
+      </div>
+
+      <div class="settings-field">
+        <label for="optional_subject">Optional Subject</label>
+        <select id="optional_subject" name="optional_subject">
+          <option value="">Select Optional</option>
+          <option value="Anthropology">Anthropology</option>
+          <option value="Geography">Geography</option>
+          <option value="History">History</option>
+          <option value="Political Science">Political Science</option>
+          <option value="Public Administration">Public Administration</option>
+          <option value="Sociology">Sociology</option>
+          <option value="Philosophy">Philosophy</option>
+          <option value="Psychology">Psychology</option>
+          <option value="Economics">Economics</option>
+          <option value="Mathematics">Mathematics</option>
+          <option value="Law">Law</option>
+          <option value="Commerce">Commerce</option>
+          <option value="Agriculture">Agriculture</option>
+          <option value="Management">Management</option>
+          <option value="Literature">Literature</option>
+        </select>
+      </div>
+
+      <div class="settings-actions">
+        <button type="submit" class="save-settings-btn">Save Changes</button>
+      </div>
+
+      <p id="settingsMessage" class="settings-message"></p>
+    </form>
+  </div>
+</div>
+
+<script>
+  const openSettingsBtn = document.getElementById("openSettingsBtn");
+  const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+  const settingsOverlay = document.getElementById("settingsOverlay");
+  const settingsForm = document.getElementById("settingsForm");
+  const settingsMessage = document.getElementById("settingsMessage");
+
+  function openSettingsModal() {
+    settingsOverlay.classList.add("active");
+
+    fetch("/settings/data")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("notifications_enabled").value =
+          String(data.notifications_enabled ?? true);
+
+        document.getElementById("language").value =
+          data.language || "English";
+
+        document.getElementById("optional_subject").value =
+          data.optional_subject || "";
+      })
+      .catch(() => {
+        settingsMessage.textContent = "Unable to load settings.";
+        settingsMessage.className = "settings-message error";
+      });
+  }
+
+  function closeSettingsModal() {
+    settingsOverlay.classList.remove("active");
+    settingsMessage.textContent = "";
+    settingsMessage.className = "settings-message";
+  }
+
+  openSettingsBtn.addEventListener("click", openSettingsModal);
+  closeSettingsBtn.addEventListener("click", closeSettingsModal);
+
+  settingsOverlay.addEventListener("click", function (e) {
+    if (e.target === settingsOverlay) {
+      closeSettingsModal();
+    }
+  });
+
+  settingsForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const payload = {
+      notifications_enabled: document.getElementById("notifications_enabled").value === "true",
+      language: document.getElementById("language").value,
+      optional_subject: document.getElementById("optional_subject").value
+    };
+
+    try {
+      const response = await fetch("/settings/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        settingsMessage.textContent = "Settings saved successfully.";
+        settingsMessage.className = "settings-message success";
+      } else {
+        settingsMessage.textContent = result.message || "Failed to save settings.";
+        settingsMessage.className = "settings-message error";
+      }
+    } catch (error) {
+      settingsMessage.textContent = "Something went wrong while saving.";
+      settingsMessage.className = "settings-message error";
+    }
+  });
+</script>

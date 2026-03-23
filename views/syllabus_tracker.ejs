@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Syllabus Tracker</title>
+<link rel="stylesheet" href="/styles/main.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+
+  <div class="sidebar">
+    <div class="logo">
+      <img src="/images/emblem.png" class="emblem">
+      <h2>UPSC Tracker</h2>
+    </div>
+
+    <ul>
+      <li class="<%= (currentPage === 'dashboard') ? 'active' : '' %>"><a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a></li>
+      <li class="<%= (currentPage === 'syllabus') ? 'active' : '' %>"><a href="/syllabus-tracker"><i class="fas fa-book"></i> Syllabus Tracker</a></li>
+      <li><a href="/study-planner"><i class="fas fa-calendar"></i> Study Planner</a></li>
+      <li><a href="/resources"><i class="fas fa-folder"></i> Resources</a></li>
+    </ul>
+
+    <div class="bottom-menu">
+      <%- include('settings') %>
+      <li onclick="window.location.href='/logout'"><i class="fas fa-sign-out-alt"></i> Logout</li>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="syllabus-topbar">Syllabus Tracker</div>
+
+    <!-- SUMMARY BLOCKS -->
+    <div class="summary-cards">
+      <div class="summary-card total-card">
+        <h3>Total Syllabus Completed</h3>
+        <p><span id="totalCompletedCount">0</span> / <span id="totalSyllabusCount">0</span></p>
+        <h2 class="highlight-percent" id="totalCompletionPercent">0%</h2>
+      </div>
+
+      <div class="summary-card prelims-card">
+        <h3>Prelims Syllabus Completed</h3>
+        <p><span id="prelimsCompletedCount">0</span> / <span id="prelimsSyllabusCount">0</span></p>
+        <h2 class="highlight-percent" id="prelimsCompletionPercent">0%</h2>
+      </div>
+
+      <div class="summary-card mains-card">
+        <h3>Mains Syllabus Completed</h3>
+        <p><span id="mainsCompletedCount">0</span> / <span id="mainsSyllabusCount">0</span></p>
+        <h2 class="highlight-percent" id="mainsCompletionPercent">0%</h2>
+      </div>
+    </div>
+
+    <!-- CURRENT CATEGORY PROGRESS BAR -->
+    <div class="progress-wrapper">
+      <div class="progress-label">Syllabus Completed: <span id="progressPercent">0%</span></div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="syllabus-search">
+      <input type="text" id="searchInput" placeholder="Search topics">
+      <div class="toggle-buttons">
+        <button id="prelimsBtn" class="active">Prelims</button>
+        <button id="mainsBtn">Mains</button>
+      </div>
+      <button id="searchBtn" style="padding:8px 12px; border-radius:8px; border:none; background:#2563eb; color:white; cursor:pointer;">Search</button>
+    </div>
+
+    <!-- MAIN CONTENT + OVERVIEW -->
+    <div class="tracker-layout">
+      <div class="checklist-panel">
+        <div class="checklist-container" id="syllabusContainer"></div>
+      </div>
+
+      <div class="overview-panel">
+        <h2 class="overview-heading">Progress Overview</h2>
+        <div id="overviewContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const prelimsBtn = document.getElementById('prelimsBtn');
+const mainsBtn = document.getElementById('mainsBtn');
+const searchBtn = document.getElementById('searchBtn');
+const searchInput = document.getElementById('searchInput');
+const container = document.getElementById('syllabusContainer');
+const overviewContainer = document.getElementById('overviewContainer');
+const progressFill = document.getElementById('progressFill');
+const progressPercent = document.getElementById('progressPercent');
+
+const totalCompletedCount = document.getElementById('totalCompletedCount');
+const totalSyllabusCount = document.getElementById('totalSyllabusCount');
+const totalCompletionPercent = document.getElementById('totalCompletionPercent');
+
+const prelimsCompletedCount = document.getElementById('prelimsCompletedCount');
+const prelimsSyllabusCount = document.getElementById('prelimsSyllabusCount');
+const prelimsCompletionPercent = document.getElementById('prelimsCompletionPercent');
+
+const mainsCompletedCount = document.getElementById('mainsCompletedCount');
+const mainsSyllabusCount = document.getElementById('mainsSyllabusCount');
+const mainsCompletionPercent = document.getElementById('mainsCompletionPercent');
+
+const syllabus = <%- JSON.stringify(syllabusData) %>;
+const overviewData = <%- JSON.stringify(overviewData) %>;
+
+let currentCategory = 'prelims';
+let userProgress = {};
+
+// Load saved progress from DB
+async function loadProgress() {
+  try {
+    const res = await fetch('/api/syllabus-progress');
+    const data = await res.json();
+    userProgress = data || {};
+    renderSyllabus(syllabus[currentCategory]);
+    renderOverview(overviewData[currentCategory]);
+    updateAllSummaryCards();
+  } catch (err) {
+    console.error('Error loading saved progress:', err);
+    userProgress = {};
+    renderSyllabus(syllabus[currentCategory]);
+    renderOverview(overviewData[currentCategory]);
+    updateAllSummaryCards();
+  }
+}
+
+// Count all topics in category
+function countTopics(categoryData) {
+  let total = 0;
+  for (let paper in categoryData) {
+    total += categoryData[paper].length;
+  }
+  return total;
+}
+
+// Count completed topics in category
+function countCompletedTopics(categoryName) {
+  let completed = 0;
+  const categoryData = syllabus[categoryName] || {};
+
+  for (let paper in categoryData) {
+    categoryData[paper].forEach(topic => {
+      if (
+        userProgress[categoryName] &&
+        userProgress[categoryName][paper] &&
+        userProgress[categoryName][paper][topic] === true
+      ) {
+        completed++;
+      }
+    });
+  }
+
+  return completed;
+}
+
+// Update top 3 summary blocks
+function updateAllSummaryCards() {
+  const prelimsTotal = countTopics(syllabus.prelims || {});
+  const mainsTotal = countTopics(syllabus.mains || {});
+  const totalAll = prelimsTotal + mainsTotal;
+
+  const prelimsDone = countCompletedTopics('prelims');
+  const mainsDone = countCompletedTopics('mains');
+  const totalDone = prelimsDone + mainsDone;
+
+  const prelimsPercent = prelimsTotal ? Math.round((prelimsDone / prelimsTotal) * 100) : 0;
+  const mainsPercent = mainsTotal ? Math.round((mainsDone / mainsTotal) * 100) : 0;
+  const totalPercent = totalAll ? Math.round((totalDone / totalAll) * 100) : 0;
+
+  prelimsCompletedCount.textContent = prelimsDone;
+  prelimsSyllabusCount.textContent = prelimsTotal;
+  prelimsCompletionPercent.textContent = prelimsPercent + '%';
+
+  mainsCompletedCount.textContent = mainsDone;
+  mainsSyllabusCount.textContent = mainsTotal;
+  mainsCompletionPercent.textContent = mainsPercent + '%';
+
+  totalCompletedCount.textContent = totalDone;
+  totalSyllabusCount.textContent = totalAll;
+  totalCompletionPercent.textContent = totalPercent + '%';
+}
+
+// Render checklist
+function renderSyllabus(data) {
+  container.innerHTML = '';
+
+  for (let paper in data) {
+    const section = document.createElement('div');
+    section.className = 'checklist-section';
+
+    const label = document.createElement('label');
+    label.textContent = paper;
+    section.appendChild(label);
+
+    const divSub = document.createElement('div');
+    divSub.className = 'checklist-subjects';
+
+    data[paper].forEach(topic => {
+      const div = document.createElement('div');
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+
+      if (
+        userProgress[currentCategory] &&
+        userProgress[currentCategory][paper] &&
+        userProgress[currentCategory][paper][topic] === true
+      ) {
+        input.checked = true;
+      }
+
+      input.addEventListener('change', async () => {
+        const ok = await saveTopicProgress(currentCategory, paper, topic, input.checked);
+
+        if (!ok) {
+          input.checked = !input.checked;
+        }
+
+        updateProgress();
+        updateAllSummaryCards();
+        renderOverview(overviewData[currentCategory]);
+      });
+
+      div.appendChild(input);
+      div.appendChild(document.createTextNode(' ' + topic));
+      divSub.appendChild(div);
+    });
+
+    section.appendChild(divSub);
+    container.appendChild(section);
+  }
+
+  updateProgress();
+}
+
+// Render progress overview panel
+function renderOverview(data) {
+  overviewContainer.innerHTML = '';
+
+  for (let category in data) {
+    const categoryBlock = document.createElement('div');
+    categoryBlock.className = 'overview-category-block';
+
+    const categoryHeading = document.createElement('h3');
+    categoryHeading.className = 'overview-category-heading';
+    categoryHeading.textContent = category;
+    categoryBlock.appendChild(categoryHeading);
+
+    for (let subject in data[category]) {
+      const topics = data[category][subject];
+      const total = topics.length;
+
+      let completed = 0;
+      topics.forEach(topic => {
+        if (
+          userProgress[currentCategory] &&
+          userProgress[currentCategory][category] &&
+          userProgress[currentCategory][category][topic] === true
+        ) {
+          completed++;
+        }
+      });
+
+      const percent = total ? Math.round((completed / total) * 100) : 0;
+
+      const row = document.createElement('div');
+      row.className = 'overview-subject-row';
+
+      const name = document.createElement('div');
+      name.className = 'overview-subject-name';
+      name.textContent = subject;
+
+      const barWrap = document.createElement('div');
+      barWrap.className = 'overview-progress-wrap';
+
+      const barBg = document.createElement('div');
+      barBg.className = 'overview-progress-bg';
+
+      const barFill = document.createElement('div');
+      barFill.className = 'overview-progress-fill';
+      barFill.style.width = percent + '%';
+
+      barBg.appendChild(barFill);
+
+      const percentText = document.createElement('div');
+      percentText.className = 'overview-progress-text';
+      percentText.textContent = percent + '%';
+
+      barWrap.appendChild(barBg);
+      barWrap.appendChild(percentText);
+
+      row.appendChild(name);
+      row.appendChild(barWrap);
+
+      categoryBlock.appendChild(row);
+    }
+
+    overviewContainer.appendChild(categoryBlock);
+  }
+}
+
+// Save checkbox state
+async function saveTopicProgress(category, paper, topic, completed) {
+  try {
+    const res = await fetch('/api/syllabus-progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category,
+        paper,
+        topic,
+        completed
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      if (!userProgress[category]) userProgress[category] = {};
+      if (!userProgress[category][paper]) userProgress[category][paper] = {};
+
+      userProgress[category][paper][topic] = completed;
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error('Error saving topic progress:', err);
+    return false;
+  }
+}
+
+// Update visible category progress bar
+function updateProgress() {
+  const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+  const total = checkboxes.length;
+  const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+  const percent = total ? Math.round((checked / total) * 100) : 0;
+
+  progressFill.style.width = percent + '%';
+  progressPercent.textContent = percent + '%';
+}
+
+// Search only checklist, not overview
+function performSearch() {
+  const query = searchInput.value.toLowerCase().trim();
+
+  if (!query) {
+    renderSyllabus(syllabus[currentCategory]);
+    return;
+  }
+
+  const filtered = {};
+
+  for (let paper in syllabus[currentCategory]) {
+    filtered[paper] = syllabus[currentCategory][paper].filter(topic =>
+      topic.toLowerCase().includes(query)
+    );
+  }
+
+  renderSyllabus(filtered);
+}
+
+// Toggle category
+prelimsBtn.addEventListener('click', () => {
+  currentCategory = 'prelims';
+  prelimsBtn.classList.add('active');
+  mainsBtn.classList.remove('active');
+  searchInput.value = '';
+  renderSyllabus(syllabus[currentCategory]);
+  renderOverview(overviewData[currentCategory]);
+});
+
+mainsBtn.addEventListener('click', () => {
+  currentCategory = 'mains';
+  mainsBtn.classList.add('active');
+  prelimsBtn.classList.remove('active');
+  searchInput.value = '';
+  renderSyllabus(syllabus[currentCategory]);
+  renderOverview(overviewData[currentCategory]);
+});
+
+searchBtn.addEventListener('click', performSearch);
+searchInput.addEventListener('input', performSearch);
+
+// Initial load
+loadProgress();
+</script>
+<div class="footer-bar">
+  Developed by Chippa Likhitha
+</div>
+</body>
+</html>
