@@ -9,9 +9,11 @@ const bcrypt = require('bcryptjs');
 const OpenAI = require("openai");
 const { google } = require("googleapis");
 require("dotenv").config();
-
+console.log("ENV keys loaded:", Object.keys(process.env).filter(k => k.includes("DATABASE") || k.includes("DB")));
 const nodemailer = require("nodemailer");
 const cron = require("node-cron");
+const multer = require('multer');
+const fs = require('fs');
 
 let openai = null;
 
@@ -23,28 +25,17 @@ if (process.env.OPENAI_API_KEY) {
   console.warn("OPENAI_API_KEY is missing. Using fallback analysis only.");
 }
 
-const multer = require('multer');
-const fs = require('fs');
+
 
 const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
 const app = express();
 
 // PostgreSQL connection
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
-// PostgreSQL connection
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error("DB connection error:", err);
-  } else {
-    console.log("Connected to PostgreSQL");
-    release();
-  }
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: false }
+    : false
 });
 
 // Test DB
@@ -66,18 +57,20 @@ const transporter = nodemailer.createTransport({
 });
 
 // Middleware
-app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/styles', express.static(path.join(__dirname, 'styles')));
+
+app.set('trust proxy', 1);
 
 app.use(session({
-  secret: 'upsc_secret_change_this_to_a_long_random_string',
+  secret: process.env.SESSION_SECRET || 'temporary_local_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false, 
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 1000 * 60 * 60 * 24
   }
 }));
@@ -96,9 +89,6 @@ function isStrongPassword(password) {
 
   return password.length >= minLength && strongPasswordRegex.test(password);
 }
-
-// Serve CSS from styles folder
-app.use('/styles', express.static(path.join(__dirname, 'styles')));
 
 app.set('view engine', 'ejs');
 
@@ -367,6 +357,9 @@ app.post('/login', async (req, res) => {
     }
 
     const user = result.rows[0];
+    console.log("User row:", user);
+    console.log("Stored password:", user.password);
+
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
@@ -431,6 +424,7 @@ app.post('/submit-details', async (req, res) => {
       [email, first_name, last_name, gender, contact_number, state, city, father_name, mother_name, disabilities, language, optional]
     );
 
+    req.session.email = email;
     res.redirect('/dashboard');
 
   } catch (err) {
@@ -1651,7 +1645,7 @@ app.get('/settings/data', checkAuth, async (req, res) => {
     const email = req.session.email;
 
     const result = await pool.query(
-      `SELECT notifications_enabled, language, optional_subject
+      `SELECT email_notifications, language, optional
        FROM details
        WHERE email = $1`,
       [email]
@@ -1666,9 +1660,9 @@ app.get('/settings/data', checkAuth, async (req, res) => {
     }
 
     res.json({
-      notifications_enabled: result.rows[0].notifications_enabled ?? true,
+      notifications_enabled: result.rows[0].email_notifications ?? true,
       language: result.rows[0].language || 'English',
-      optional_subject: result.rows[0].optional_subject || ''
+      optional_subject: result.rows[0].optional || ''
     });
   } catch (err) {
     console.error('Error fetching settings:', err);
@@ -1683,9 +1677,9 @@ app.post('/settings/save', checkAuth, async (req, res) => {
 
     await pool.query(
       `UPDATE details
-       SET notifications_enabled = $1,
+       SET email_notifications = $1,
            language = $2,
-           optional_subject = $3
+           optional = $3
        WHERE email = $4`,
       [notifications_enabled, language, optional_subject, email]
     );
@@ -1700,6 +1694,6 @@ app.post('/settings/save', checkAuth, async (req, res) => {
 // ================= SERVER =================
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
