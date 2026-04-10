@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Study Planner</title>
+  <link rel="stylesheet" href="/styles/main.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo">
+      <img src="/images/emblem.png" class="emblem">
+      <h2>UPSC Tracker</h2>
+    </div>
+
+    <ul>
+      <li class="<%= (currentPage === 'dashboard') ? 'active' : '' %>">
+        <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+      </li>
+      <li class="<%= (currentPage === 'syllabus') ? 'active' : '' %>">
+        <a href="/syllabus-tracker"><i class="fas fa-book"></i> Syllabus Tracker</a>
+      </li>
+      <li class="<%= (currentPage === 'planner') ? 'active' : '' %>">
+        <a href="/study-planner"><i class="fas fa-calendar"></i> Study Planner</a>
+      </li>
+      <li class="<%= (currentPage === 'resources') ? 'active' : '' %>">
+        <a href="/resources"><i class="fas fa-folder"></i> Resources</a>
+      </li>
+    </ul>
+
+    <div class="bottom-menu">
+      <%- include('settings') %>
+      <li onclick="window.location.href='/logout'">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </li>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOP BAR -->
+    <div class="planner-topbar">
+      <h2>Study Planner</h2>
+      <div class="planner-topbar-actions">
+        <a href="/auth/google" class="google-calendar-btn">Connect Google Calendar</a>
+        <button id="openPomodoroBtn" class="pomodoro-open-btn">Pomodoro</button>
+      </div>
+    </div>
+
+    <!-- DATE TIME -->
+    <div class="planner-datetime-card">
+      <h3 id="istDateTime">Today: Time: --:--:-- Date -- -- ----, ---</h3>
+    </div>
+
+    <!-- WEEKLY CALENDAR -->
+    <div class="planner-calendar-card">
+      <div class="planner-calendar-header">
+        <h3>Weekly Calendar</h3>
+        <button id="openMonthCalendarBtn" class="more-btn">More</button>
+      </div>
+      <div class="planner-week-row" id="weekRow"></div>
+    </div>
+
+    <!-- LOWER SECTION -->
+    <div class="planner-bottom-grid">
+      <div class="planner-chart-card">
+        <div class="card-header-with-action">
+          <h3>Study Hours Overview</h3>
+        </div>
+
+        <div class="hours-entry-box">
+          <label for="studyHoursInput">Enter study hours for selected day:</label>
+          <div class="hours-entry-row">
+            <input type="number" id="studyHoursInput" min="0" max="24" step="0.5" placeholder="0 - 24">
+            <button id="saveHoursBtn">Save Hours</button>
+          </div>
+        </div>
+
+        <canvas id="studyHoursChart"></canvas>
+      </div>
+
+      <div class="planner-targets-card">
+        <div class="card-header-with-action">
+          <h3 id="taskHeading">Targets for Today</h3>
+          <button class="add-task-btn" id="topAddTaskBtn">Add Task +</button>
+        </div>
+        <div id="taskList" class="task-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- POMODORO FULL SCREEN -->
+<div class="fullscreen-overlay" id="pomodoroOverlay">
+  <div class="fullscreen-panel">
+    <div class="overlay-topbar">
+      <h2>Pomodoro</h2>
+      <button class="close-overlay-btn" id="closePomodoroBtn">&times;</button>
+    </div>
+
+    <div class="pomodoro-mode-switch">
+      <button id="timerTab" class="pomodoro-tab active">Timer</button>
+      <button id="stopwatchTab" class="pomodoro-tab">Stopwatch</button>
+    </div>
+
+    <div id="timerPanel" class="pomodoro-mode active">
+      <div class="full-pomodoro-inputs">
+        <input type="number" id="timerHours" min="0" max="23" placeholder="HH">
+        <input type="number" id="timerMinutes" min="0" max="59" placeholder="MM">
+        <input type="number" id="timerSeconds" min="0" max="59" placeholder="SS">
+      </div>
+
+      <div class="circle-wrapper">
+        <svg class="progress-ring" width="340" height="340">
+          <circle class="ring-bg" cx="170" cy="170" r="140"></circle>
+          <circle class="ring-progress" id="timerRing" cx="170" cy="170" r="140"></circle>
+        </svg>
+        <div class="circle-time" id="timerDisplay">00:00:00</div>
+      </div>
+
+      <div class="full-pomodoro-actions">
+        <button id="startTimerBtn">Start</button>
+        <button id="pauseTimerBtn">Pause</button>
+        <button id="resetTimerBtn">Reset</button>
+      </div>
+    </div>
+
+    <div id="stopwatchPanel" class="pomodoro-mode">
+      <div class="circle-wrapper">
+        <svg class="progress-ring" width="340" height="340">
+          <circle class="ring-bg" cx="170" cy="170" r="140"></circle>
+          <circle class="ring-progress" id="stopwatchRing" cx="170" cy="170" r="140"></circle>
+        </svg>
+        <div class="circle-time" id="stopwatchDisplay">00:00:00</div>
+      </div>
+
+      <div class="full-pomodoro-actions">
+        <button id="startStopwatchBtn">Start</button>
+        <button id="pauseStopwatchBtn">Pause</button>
+        <button id="resetStopwatchBtn">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MONTH CALENDAR FULL SCREEN -->
+<div class="fullscreen-overlay" id="monthCalendarOverlay">
+  <div class="fullscreen-panel month-panel">
+    <div class="overlay-topbar">
+      <div class="month-nav">
+        <button id="prevMonthBtn"><i class="fas fa-chevron-left"></i></button>
+        <h2 id="monthTitle">Month Calendar</h2>
+        <button id="nextMonthBtn"><i class="fas fa-chevron-right"></i></button>
+      </div>
+      <button class="close-overlay-btn" id="closeMonthCalendarBtn">&times;</button>
+    </div>
+
+    <div class="month-weekdays">
+      <div>Sun</div>
+      <div>Mon</div>
+      <div>Tue</div>
+      <div>Wed</div>
+      <div>Thu</div>
+      <div>Fri</div>
+      <div>Sat</div>
+    </div>
+
+    <div class="month-grid" id="monthGrid"></div>
+  </div>
+</div>
+
+<!-- TASK MODAL -->
+<div class="fullscreen-overlay" id="taskModal">
+  <div class="task-modal-panel">
+    <div class="overlay-topbar">
+      <h2>Add Task</h2>
+      <button class="close-overlay-btn" id="closeTaskModalBtn">&times;</button>
+    </div>
+
+    <div class="task-form-grid">
+      <div class="task-field">
+        <label>Date</label>
+        <input type="date" id="taskDateInput">
+      </div>
+
+      <div class="task-field">
+        <label>Task</label>
+        <input type="text" id="taskTextInput" placeholder="Enter task">
+      </div>
+
+      <div class="task-field">
+        <label>Subject</label>
+        <input type="text" id="taskSubjectInput" placeholder="Enter subject">
+      </div>
+
+      <div class="task-field">
+        <label>Topic</label>
+        <input type="text" id="taskTopicInput" placeholder="Enter topic">
+      </div>
+
+      <div class="task-field">
+        <label>Resources</label>
+        <input type="text" id="taskResourceTextInput" placeholder="Enter resource details">
+      </div>
+
+      <div class="task-field">
+        <label>Link / PDF name</label>
+        <input type="text" id="taskResourceLinkInput" placeholder="Paste link or PDF name">
+      </div>
+
+      <div class="task-field">
+        <label>Start Time</label>
+        <input type="time" id="taskStartTimeInput" step="1">
+      </div>
+
+      <div class="task-field">
+        <label>End Time</label>
+        <input type="time" id="taskEndTimeInput" step="1">
+      </div>
+
+      <div class="task-field color-field">
+        <label>Colour</label>
+        <input type="color" id="taskColorInput" value="#2563eb">
+      </div>
+    </div>
+
+    <div class="task-modal-actions">
+      <button id="saveTaskBtn">Save</button>
+      <button id="cancelTaskBtn" class="secondary-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function getISTDateStr() {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  }
+
+  let selectedDate = getISTDateStr();
+  let liveTodayDate = getISTDateStr();
+
+  let weekData = [];
+  let monthData = [];
+  let studyChart = null;
+  let currentMonth = new Date().getMonth() + 1;
+  let currentYear = new Date().getFullYear();
+
+  // ================= IST DATE TIME =================
+  function updateISTDateTime() {
+    const now = new Date();
+
+    const timeStr = now.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour12: false
+    });
+
+    const dateStr = now.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      weekday: 'long'
+    });
+
+    document.getElementById('istDateTime').textContent =
+      `Today: Time: ${timeStr} Date ${dateStr}`;
+  }
+
+  setInterval(updateISTDateTime, 1000);
+  updateISTDateTime();
+
+  // ================= HELPERS =================
+  function todayStr() {
+  return getISTDateStr();
+}
+
+function isFutureDate(dateStr) {
+  return dateStr > todayStr();
+}
+
+function isToday(dateStr) {
+  return dateStr === todayStr();
+}
+
+function isTodayOrFuture(dateStr) {
+  return dateStr >= todayStr();
+}
+
+  function formatTimeDisplay(totalSeconds) {
+    const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+    const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+    const secs = String(totalSeconds % 60).padStart(2, '0');
+    return `${hrs}:${mins}:${secs}`;
+  }
+
+  function formatHeadingDate(dateStr) {
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
+  function getIntensityClass(day) {
+    const hours = Number(day.study_hours || 0);
+    const total = Number(day.total_tasks || 0);
+    const done = Number(day.done_tasks || 0);
+    const score = hours + done + (total ? done / total : 0);
+
+    if (score >= 8) return 'intensity-very-high';
+    if (score >= 5) return 'intensity-high';
+    if (score >= 2.5) return 'intensity-medium';
+    if (score > 0) return 'intensity-low';
+    return 'intensity-none';
+  }
+
+  // ================= WEEK LOAD =================
+  async function loadWeekData() {
+    const res = await fetch('/api/study-planner/week');
+    weekData = await res.json();
+    renderWeekCalendar();
+    renderChart();
+  }
+
+  function renderWeekCalendar() {
+    const weekRow = document.getElementById('weekRow');
+    weekRow.innerHTML = '';
+
+    weekData.forEach(day => {
+      const dateObj = new Date(day.day);
+      const dayName = dateObj.toLocaleDateString('en-IN', { weekday: 'short' });
+      const dayNumber = dateObj.toLocaleDateString('en-IN', { day: '2-digit' });
+      const monthName = dateObj.toLocaleDateString('en-IN', { month: 'short' });
+
+      const block = document.createElement('div');
+      block.className = `planner-day-block ${getIntensityClass(day)} ${day.day === selectedDate ? 'selected' : ''}`;
+
+      const canAdd = isTodayOrFuture(day.day);
+
+      block.innerHTML = `
+        <div class="planner-day-top">${isToday(day.day) ? 'Today' : dayName}</div>
+        <div class="planner-day-number">${dayNumber}</div>
+        <div class="planner-day-month">${monthName}</div>
+        <div class="planner-day-meta">${day.done_tasks}/${day.total_tasks} tasks</div>
+        <div class="planner-day-meta">${day.study_hours} hrs</div>
+        ${canAdd ? `<button class="mini-add-btn" data-date="${day.day}">Add Task +</button>` : ''}
+      `;
+
+      block.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('mini-add-btn')) {
+          selectedDate = day.day;
+          renderWeekCalendar();
+          loadTasks(selectedDate);
+        }
+      });
+
+      weekRow.appendChild(block);
+    });
+
+    document.querySelectorAll('.mini-add-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openTaskModal(btn.dataset.date);
+      });
+    });
+  }
+
+  // ================= MONTH LOAD =================
+  async function loadMonthData(month, year) {
+    const res = await fetch(`/api/study-planner/month?month=${month}&year=${year}`);
+    monthData = await res.json();
+    renderMonthCalendar(month, year);
+  }
+
+  function renderMonthCalendar(month, year) {
+    const monthGrid = document.getElementById('monthGrid');
+    monthGrid.innerHTML = '';
+
+    const monthTitleDate = new Date(year, month - 1, 1);
+    document.getElementById('monthTitle').textContent =
+      monthTitleDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    const firstDay = new Date(year, month - 1, 1).getDay();
+    const totalDays = new Date(year, month, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) {
+      const blank = document.createElement('div');
+      blank.className = 'month-day-block empty';
+      monthGrid.appendChild(blank);
+    }
+
+    for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      const dayData = monthData.find(d => d.day === dateStr) || {
+        day: dateStr,
+        total_tasks: 0,
+        done_tasks: 0,
+        study_hours: 0
+      };
+
+      const canAdd = isTodayOrFuture(dateStr);
+
+      const block = document.createElement('div');
+      block.className = `month-day-block ${getIntensityClass(dayData)} ${dateStr === selectedDate ? 'selected' : ''}`;
+
+      block.innerHTML = `
+        <div class="month-day-date">${dayNum}</div>
+        <div class="month-day-task">${dayData.done_tasks}/${dayData.total_tasks} tasks</div>
+        <div class="month-day-task">${dayData.study_hours} hrs</div>
+        ${canAdd ? `<button class="month-add-btn" data-date="${dateStr}">Add Task +</button>` : ''}
+      `;
+
+      block.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('month-add-btn')) {
+          selectedDate = dateStr;
+          loadTasks(selectedDate);
+        }
+      });
+
+      monthGrid.appendChild(block);
+    }
+
+    document.querySelectorAll('.month-add-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openTaskModal(btn.dataset.date);
+      });
+    });
+  }
+
+  // ================= CHART =================
+  function renderChart() {
+    const ctx = document.getElementById('studyHoursChart').getContext('2d');
+
+    const labels = weekData.map(day => {
+      const d = new Date(day.day);
+      return d.toLocaleDateString('en-IN', { weekday: 'short' });
+    });
+
+    const values = weekData.map(day => Number(day.study_hours || 0));
+
+    if (studyChart) studyChart.destroy();
+
+    studyChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Study Hours',
+          data: values,
+          borderWidth: 1,
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 24,
+            ticks: { stepSize: 2 }
+          }
+        }
+      }
+    });
+  }
+
+  // ================= TASKS =================
+  async function loadTasks(date) {
+    const res = await fetch(`/api/study-planner/tasks?date=${date}`);
+    const tasks = await res.json();
+
+    document.getElementById('taskHeading').textContent = `Targets for ${formatHeadingDate(date)}`;
+
+    const taskList = document.getElementById('taskList');
+    taskList.innerHTML = '';
+
+    const topAddBtn = document.getElementById('topAddTaskBtn');
+    if (isTodayOrFuture(date)) {
+      topAddBtn.style.display = 'inline-block';
+    } else {
+      topAddBtn.style.display = 'none';
+    }
+
+    if (!tasks.length) {
+      taskList.innerHTML = `
+        <div class="empty-task-state">
+          <p>No tasks for this day.</p>
+          ${isTodayOrFuture(date) ? `<button class="add-task-btn" onclick="openTaskModal('${date}')">Add Task +</button>` : ''}
+        </div>
+      `;
+      return;
+    }
+
+    tasks.forEach(task => {
+      const item = document.createElement('div');
+      item.className = 'task-detailed-card';
+      item.style.borderLeft = `8px solid ${task.color}`;
+
+      item.innerHTML = `
+        <div class="task-detailed-top">
+          <label class="task-checkbox-line">
+            <input type="checkbox" ${task.done ? 'checked' : ''} data-id="${task.id}">
+            <span class="task-title ${task.done ? 'completed' : ''}">${task.task_text}</span>
+          </label>
+          <button class="delete-task-btn" data-id="${task.id}">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+
+        <div class="task-details-grid">
+          <div><strong>Subject:</strong> ${task.subject}</div>
+          <div><strong>Topic:</strong> ${task.topic}</div>
+          <div><strong>Resources:</strong> ${task.resource_text || '-'}</div>
+          <div><strong>Link / PDF:</strong> ${task.resource_link || task.resource_file_name || '-'}</div>
+          <div><strong>Start:</strong> ${task.start_time}</div>
+          <div><strong>End:</strong> ${task.end_time}</div>
+        </div>
+      `;
+
+      taskList.appendChild(item);
+    });
+
+    document.querySelectorAll('.task-checkbox-line input').forEach(input => {
+      input.addEventListener('change', async () => {
+        await fetch('/api/study-planner/tasks/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: input.dataset.id,
+            done: input.checked
+          })
+        });
+
+        await loadTasks(selectedDate);
+        await loadWeekData();
+        await loadMonthData(currentMonth, currentYear);
+      });
+    });
+
+    document.querySelectorAll('.delete-task-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await fetch(`/api/study-planner/tasks/${btn.dataset.id}`, {
+          method: 'DELETE'
+        });
+
+        await loadTasks(selectedDate);
+        await loadWeekData();
+        await loadMonthData(currentMonth, currentYear);
+      });
+    });
+  }
+
+  // ================= HOURS =================
+  document.getElementById('saveHoursBtn').addEventListener('click', async () => {
+    const hours = parseFloat(document.getElementById('studyHoursInput').value);
+
+    if (isNaN(hours) || hours < 0 || hours > 24) {
+      alert('Enter valid study hours between 0 and 24');
+      return;
+    }
+
+    await fetch('/api/study-planner/hours', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        log_date: selectedDate,
+        study_hours: hours
+      })
+    });
+
+    document.getElementById('studyHoursInput').value = '';
+    await loadWeekData();
+    await loadMonthData(currentMonth, currentYear);
+  });
+
+  // ================= POMODORO OVERLAY =================
+  const pomodoroOverlay = document.getElementById('pomodoroOverlay');
+  document.getElementById('openPomodoroBtn').addEventListener('click', () => {
+    pomodoroOverlay.classList.add('show');
+  });
+  document.getElementById('closePomodoroBtn').addEventListener('click', () => {
+    pomodoroOverlay.classList.remove('show');
+  });
+
+  const timerTab = document.getElementById('timerTab');
+  const stopwatchTab = document.getElementById('stopwatchTab');
+  const timerPanel = document.getElementById('timerPanel');
+  const stopwatchPanel = document.getElementById('stopwatchPanel');
+
+  timerTab.addEventListener('click', () => {
+    timerTab.classList.add('active');
+    stopwatchTab.classList.remove('active');
+    timerPanel.classList.add('active');
+    stopwatchPanel.classList.remove('active');
+  });
+
+  stopwatchTab.addEventListener('click', () => {
+    stopwatchTab.classList.add('active');
+    timerTab.classList.remove('active');
+    stopwatchPanel.classList.add('active');
+    timerPanel.classList.remove('active');
+  });
+
+  const radius = 140;
+  const circumference = 2 * Math.PI * radius;
+  const timerRing = document.getElementById('timerRing');
+  const stopwatchRing = document.getElementById('stopwatchRing');
+
+  [timerRing, stopwatchRing].forEach(ring => {
+    ring.style.strokeDasharray = `${circumference}`;
+    ring.style.strokeDashoffset = `${circumference}`;
+  });
+
+  function setRingProgress(ring, percent) {
+    const offset = circumference - (percent / 100) * circumference;
+    ring.style.strokeDashoffset = offset;
+  }
+
+  // Timer
+  let timerInterval = null;
+  let timerRemaining = 0;
+  let timerInitial = 0;
+
+  function setTimerFromInputs() {
+    const h = parseInt(document.getElementById('timerHours').value) || 0;
+    const m = parseInt(document.getElementById('timerMinutes').value) || 0;
+    const s = parseInt(document.getElementById('timerSeconds').value) || 0;
+    timerRemaining = h * 3600 + m * 60 + s;
+    timerInitial = timerRemaining;
+    document.getElementById('timerDisplay').textContent = formatTimeDisplay(timerRemaining);
+    setRingProgress(timerRing, 100);
+  }
+
+  document.getElementById('startTimerBtn').addEventListener('click', () => {
+    if (timerRemaining <= 0) setTimerFromInputs();
+    if (timerRemaining <= 0) return;
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (timerRemaining > 0) {
+        timerRemaining--;
+        document.getElementById('timerDisplay').textContent = formatTimeDisplay(timerRemaining);
+        const percent = timerInitial > 0 ? (timerRemaining / timerInitial) * 100 : 0;
+        setRingProgress(timerRing, percent);
+      } else {
+        clearInterval(timerInterval);
+        setRingProgress(timerRing, 0);
+        alert('Timer completed!');
+      }
+    }, 1000);
+  });
+
+  document.getElementById('pauseTimerBtn').addEventListener('click', () => {
+    clearInterval(timerInterval);
+  });
+
+  document.getElementById('resetTimerBtn').addEventListener('click', () => {
+    clearInterval(timerInterval);
+    timerRemaining = 0;
+    timerInitial = 0;
+    document.getElementById('timerHours').value = '';
+    document.getElementById('timerMinutes').value = '';
+    document.getElementById('timerSeconds').value = '';
+    document.getElementById('timerDisplay').textContent = '00:00:00';
+    setRingProgress(timerRing, 0);
+  });
+
+  // Stopwatch
+  let stopwatchInterval = null;
+  let stopwatchSeconds = 0;
+
+  document.getElementById('startStopwatchBtn').addEventListener('click', () => {
+    clearInterval(stopwatchInterval);
+    stopwatchInterval = setInterval(() => {
+      stopwatchSeconds++;
+      document.getElementById('stopwatchDisplay').textContent = formatTimeDisplay(stopwatchSeconds);
+      const percent = stopwatchSeconds % 60 / 60 * 100;
+      setRingProgress(stopwatchRing, percent);
+    }, 1000);
+  });
+
+  document.getElementById('pauseStopwatchBtn').addEventListener('click', () => {
+    clearInterval(stopwatchInterval);
+  });
+
+  document.getElementById('resetStopwatchBtn').addEventListener('click', () => {
+    clearInterval(stopwatchInterval);
+    stopwatchSeconds = 0;
+    document.getElementById('stopwatchDisplay').textContent = '00:00:00';
+    setRingProgress(stopwatchRing, 0);
+  });
+
+  // ================= MONTH OVERLAY =================
+  const monthCalendarOverlay = document.getElementById('monthCalendarOverlay');
+  document.getElementById('openMonthCalendarBtn').addEventListener('click', async () => {
+    monthCalendarOverlay.classList.add('show');
+    await loadMonthData(currentMonth, currentYear);
+  });
+
+  document.getElementById('closeMonthCalendarBtn').addEventListener('click', () => {
+    monthCalendarOverlay.classList.remove('show');
+  });
+
+  document.getElementById('prevMonthBtn').addEventListener('click', async () => {
+    currentMonth--;
+    if (currentMonth < 1) {
+      currentMonth = 12;
+      currentYear--;
+    }
+    await loadMonthData(currentMonth, currentYear);
+  });
+
+  document.getElementById('nextMonthBtn').addEventListener('click', async () => {
+    currentMonth++;
+    if (currentMonth > 12) {
+      currentMonth = 1;
+      currentYear++;
+    }
+    await loadMonthData(currentMonth, currentYear);
+  });
+
+  // ================= TASK MODAL =================
+  const taskModal = document.getElementById('taskModal');
+
+  function openTaskModal(date = selectedDate) {
+    document.getElementById('taskDateInput').value = date;
+    document.getElementById('taskTextInput').value = '';
+    document.getElementById('taskSubjectInput').value = '';
+    document.getElementById('taskTopicInput').value = '';
+    document.getElementById('taskResourceTextInput').value = '';
+    document.getElementById('taskResourceLinkInput').value = '';
+    document.getElementById('taskStartTimeInput').value = '';
+    document.getElementById('taskEndTimeInput').value = '';
+    document.getElementById('taskColorInput').value = '#2563eb';
+    taskModal.classList.add('show');
+  }
+
+  function closeTaskModal() {
+    taskModal.classList.remove('show');
+  }
+
+  window.openTaskModal = openTaskModal;
+
+  document.getElementById('topAddTaskBtn').addEventListener('click', () => openTaskModal(selectedDate));
+  document.getElementById('closeTaskModalBtn').addEventListener('click', closeTaskModal);
+  document.getElementById('cancelTaskBtn').addEventListener('click', closeTaskModal);
+
+  document.getElementById('saveTaskBtn').addEventListener('click', async () => {
+  const task_date = document.getElementById('taskDateInput').value;
+  const task_text = document.getElementById('taskTextInput').value.trim();
+  const subject = document.getElementById('taskSubjectInput').value.trim();
+  const topic = document.getElementById('taskTopicInput').value.trim();
+  const resource_text = document.getElementById('taskResourceTextInput').value.trim();
+  const resource_link = document.getElementById('taskResourceLinkInput').value.trim();
+  const start_time = document.getElementById('taskStartTimeInput').value;
+  const end_time = document.getElementById('taskEndTimeInput').value;
+  const color = document.getElementById('taskColorInput').value;
+
+  if (!task_date || !task_text || !subject || !topic || !start_time || !end_time || !color) {
+    alert('Please fill all required fields');
+    return;
+  }
+
+  if (end_time <= start_time) {
+    alert('End time must be later than start time');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/study-planner/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_date,
+        task_text,
+        subject,
+        topic,
+        resource_text,
+        resource_link,
+        resource_file_name: '',
+        start_time,
+        end_time,
+        color
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      alert(data.error || 'Failed to save task');
+      return;
+    }
+
+    selectedDate = task_date;
+    closeTaskModal();
+    await loadTasks(selectedDate);
+    await loadWeekData();
+    await loadMonthData(currentMonth, currentYear);
+  } catch (err) {
+    console.error('Error saving task:', err);
+    alert('Something went wrong while saving task');
+  }
+});
+
+  function watchStudyPlannerDateChange() {
+  setInterval(async () => {
+    const currentDate = getISTDateStr();
+
+    if (currentDate !== liveTodayDate) {
+      liveTodayDate = currentDate;
+      selectedDate = currentDate;
+
+      await loadWeekData();
+      await loadTasks(selectedDate);
+      await loadMonthData(currentMonth, currentYear);
+    }
+  }, 30000);
+}
+
+  // ================= INIT =================
+  loadWeekData();
+  loadTasks(selectedDate);
+  loadMonthData(currentMonth, currentYear);
+  watchStudyPlannerDateChange();
+</script>
+<div class="footer-bar">
+  Developed by Chippa Likhitha
+</div>
+</body>
+</html>

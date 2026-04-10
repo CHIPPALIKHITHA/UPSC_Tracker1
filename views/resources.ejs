@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Resources</title>
+  <link rel="stylesheet" href="/styles/main.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo">
+      <img src="/images/emblem.png" class="emblem">
+      <h2>UPSC Tracker</h2>
+    </div>
+
+    <ul>
+      <li class="<%= (currentPage === 'dashboard') ? 'active' : '' %>">
+        <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+      </li>
+      <li class="<%= (currentPage === 'syllabus') ? 'active' : '' %>">
+        <a href="/syllabus-tracker"><i class="fas fa-book"></i> Syllabus Tracker</a>
+      </li>
+      <li class="<%= (currentPage === 'planner') ? 'active' : '' %>">
+        <a href="/study-planner"><i class="fas fa-calendar"></i> Study Planner</a>
+      </li>
+      <li class="<%= (currentPage === 'resources') ? 'active' : '' %>">
+        <a href="/resources"><i class="fas fa-folder"></i> Resources</a>
+      </li>
+    </ul>
+
+    <div class="bottom-menu">
+      <%- include('settings') %>
+      <li onclick="window.location.href='/logout'">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </li>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOP BAR -->
+    <div class="topbar resources-topbar">
+      <h2>Resources</h2>
+      <p>Search NCERTs, standard books, and current affairs</p>
+    </div>
+
+    <!-- SEARCH -->
+    <div class="resources-search-card">
+      <div class="resources-search-wrap">
+        <i class="fas fa-search"></i>
+        <input
+          type="text"
+          id="resourceSearchInput"
+          placeholder="Search NCERTs, standard books, or current affairs..."
+        >
+      </div>
+      <div id="resourceSearchStatus" class="resource-search-status"></div>
+    </div>
+
+    <!-- BOOK SECTIONS -->
+    <div class="resources-grid">
+
+      <!-- NCERTS -->
+      <div class="resource-section-card">
+        <div class="resource-section-header">
+          <h3>NCERTs (Class 6 to 12)</h3>
+          <span class="resource-count" id="ncertCount"><%= ncerts.length %> items</span>
+        </div>
+
+        <div class="resource-list" id="ncertList">
+          <% ncerts.forEach((book, index) => { %>
+            <div class="resource-item-card searchable-resource"
+                 data-type="ncert"
+                 data-search="<%= `${book.class_name} ${book.subject} ${book.title}`.toLowerCase() %>">
+              <div class="resource-item-left">
+                <div class="resource-badge blue-badge">NCERT</div>
+                <div class="resource-item-content">
+                  <h4><%= book.title %></h4>
+                  <p>Class: <%= book.class_name %> | Subject: <%= book.subject %></p>
+                  <a href="<%= book.link %>" target="_blank">Open PDF</a>
+                </div>
+              </div>
+
+              <button
+                class="resource-add-btn"
+                data-title="<%= book.title %>"
+                data-subject="<%= book.subject %>"
+                data-category="NCERT"
+                data-link="<%= book.link %>">
+                Add to Study Plan
+              </button>
+            </div>
+          <% }) %>
+        </div>
+
+        <div class="resource-not-found hidden" id="ncertEmpty">Not found</div>
+      </div>
+
+      <!-- STANDARD BOOKS -->
+      <div class="resource-section-card">
+        <div class="resource-section-header">
+          <h3>Standard Books</h3>
+          <span class="resource-count" id="standardCount"><%= standardBooks.length %> items</span>
+        </div>
+
+        <div class="resource-list" id="standardBookList">
+          <% standardBooks.forEach((book, index) => { %>
+            <div class="resource-item-card searchable-resource"
+                 data-type="standard"
+                 data-search="<%= `${book.subject} ${book.title} ${book.author}`.toLowerCase() %>">
+              <div class="resource-item-left">
+                <div class="resource-badge gold-badge">BOOK</div>
+                <div class="resource-item-content">
+                  <h4><%= book.title %></h4>
+                  <p>Subject: <%= book.subject %> | Author: <%= book.author %></p>
+                  <a href="<%= book.link %>" target="_blank">Open PDF</a>
+                </div>
+              </div>
+
+              <button
+                class="resource-add-btn"
+                data-title="<%= book.title %>"
+                data-subject="<%= book.subject %>"
+                data-category="Standard Book"
+                data-link="<%= book.link %>">
+                Add to Study Plan
+              </button>
+            </div>
+          <% }) %>
+        </div>
+
+        <div class="resource-not-found hidden" id="standardEmpty">Not found</div>
+      </div>
+    </div>
+
+    <!-- CURRENT AFFAIRS -->
+<div class="current-affairs-card">
+  <div class="resource-section-header">
+    <h3>Daily Current Affairs</h3>
+    <span class="resource-count" id="currentAffairsCount"><%= currentAffairs.length %> items</span>
+  </div>
+
+  <% if (!currentAffairs || currentAffairs.length === 0) { %>
+    <div class="resource-not-found">No current affairs available</div>
+  <% } else { %>
+    <div id="currentAffairsList">
+      <% currentAffairs.forEach((item, index) => { %>
+        <div class="current-affair-item searchable-resource"
+             data-type="current-affair"
+             data-search="<%= `${item.heading} ${item.source} ${item.analysis} ${item.date}`.toLowerCase() %>">
+
+          <button class="current-affair-title" type="button" onclick="toggleAffair(<%= index %>)">
+            <div class="current-affair-heading-wrap">
+              <span class="current-affair-heading-text"><strong><%= item.heading %></strong></span>
+              <span class="current-affair-date"><%= item.date %></span>
+            </div>
+            <i class="fas fa-chevron-down" id="affairIcon<%= index %>"></i>
+          </button>
+
+          <div class="current-affair-meta">
+            <span><strong>Source:</strong> <%= item.source %></span>
+          </div>
+
+          <div class="current-affair-analysis hidden" id="affairBody<%= index %>">
+            <p><%= item.analysis %></p>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <div class="resource-not-found hidden" id="currentAffairsEmpty">Not found</div>
+</div>
+
+  </div>
+</div>
+
+<!-- NOTES UPLOAD -->
+<div class="notes-upload-card">
+  <div class="resource-section-header">
+    <h3>Upload Notes</h3>
+    <span class="resource-count" id="currentAffairsCount"><%= currentAffairs ? currentAffairs.length : 0 %> items</span>
+  </div>
+
+  <form class="notes-upload-form" action="/resources/upload-note" method="POST" enctype="multipart/form-data">
+    <div class="notes-upload-fields">
+      <div class="task-field">
+        <label for="noteTitle">Title</label>
+        <input type="text" id="noteTitle" name="title" placeholder="Enter note title" required>
+      </div>
+
+      <div class="task-field">
+        <label for="noteSubject">Subject</label>
+        <input type="text" id="noteSubject" name="subject" placeholder="Enter subject name" required>
+      </div>
+
+      <div class="task-field">
+        <label for="notePdf">Upload PDF</label>
+        <input type="file" id="notePdf" name="notePdf" accept="application/pdf" required>
+      </div>
+    </div>
+
+    <button type="submit" class="resource-add-btn">Upload Notes PDF</button>
+  </form>
+
+  <div class="uploaded-notes-list">
+    <% if (uploadedNotes && uploadedNotes.length > 0) { %>
+      <% uploadedNotes.forEach(note => { %>
+        <div class="uploaded-note-item">
+          <div class="uploaded-note-info">
+            <h4><%= note.title %></h4>
+            <p>Subject: <%= note.subject %></p>
+          </div>
+          <a href="<%= note.file_path %>" target="_blank" class="resource-add-btn open-note-btn">Open PDF</a>
+        </div>
+      <% }) %>
+    <% } else { %>
+      <div class="resource-not-found">No notes uploaded yet</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- ADD TO STUDY PLAN MODAL -->
+<div class="fullscreen-overlay" id="resourcePlanModal">
+  <div class="resource-modal-panel">
+    <div class="overlay-topbar">
+      <h2>Add Resource to Study Plan</h2>
+      <button class="close-overlay-btn" id="closeResourceModalBtn">&times;</button>
+    </div>
+
+    <div class="resource-modal-body">
+      <div class="resource-modal-preview">
+        <h3 id="selectedResourceTitle">Resource Title</h3>
+        <p><strong>Category:</strong> <span id="selectedResourceCategory">-</span></p>
+        <p><strong>Subject:</strong> <span id="selectedResourceSubject">-</span></p>
+      </div>
+
+      <div class="resource-modal-form">
+        <div class="task-field">
+          <label>Select Date</label>
+          <input type="date" id="resourcePlanDate">
+        </div>
+
+        <div class="task-field">
+          <label>Optional Note</label>
+          <input type="text" id="resourcePlanNote" placeholder="e.g. Read chapters 1 to 3">
+        </div>
+      </div>
+    </div>
+
+    <div class="task-modal-actions">
+      <button id="saveResourcePlanBtn">Add</button>
+      <button id="cancelResourcePlanBtn" class="secondary-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let selectedResource = {
+    title: '',
+    subject: '',
+    category: '',
+    link: ''
+  };
+
+  const resourceSearchInput = document.getElementById('resourceSearchInput');
+
+  function toggleAffair(index) {
+    const body = document.getElementById(`affairBody${index}`);
+    const icon = document.getElementById(`affairIcon${index}`);
+
+    body.classList.toggle('hidden');
+    icon.classList.toggle('rotate-icon');
+  }
+
+  function filterResources() {
+    const query = resourceSearchInput.value.trim().toLowerCase();
+    const allCards = document.querySelectorAll('.searchable-resource');
+
+    let visibleNCERT = 0;
+    let visibleStandard = 0;
+    let visibleAffairs = 0;
+
+    allCards.forEach(card => {
+      const text = card.dataset.search || '';
+      const type = card.dataset.type || '';
+      const isMatch = text.includes(query);
+
+      card.style.display = isMatch ? '' : 'none';
+
+      if (isMatch && type === 'ncert') visibleNCERT++;
+      if (isMatch && type === 'standard') visibleStandard++;
+      if (isMatch && type === 'current-affair') visibleAffairs++;
+    });
+
+    document.getElementById('ncertEmpty').classList.toggle('hidden', visibleNCERT !== 0);
+    document.getElementById('standardEmpty').classList.toggle('hidden', visibleStandard !== 0);
+    document.getElementById('currentAffairsEmpty').classList.toggle('hidden', visibleAffairs !== 0);
+
+    const totalVisible = visibleNCERT + visibleStandard + visibleAffairs;
+    const status = document.getElementById('resourceSearchStatus');
+
+    if (!query) {
+      status.textContent = '';
+    } else if (totalVisible === 0) {
+      status.textContent = 'Not found';
+    } else {
+      status.textContent = `${totalVisible} resource(s) found`;
+    }
+  }
+
+  resourceSearchInput.addEventListener('input', filterResources);
+
+  const resourcePlanModal = document.getElementById('resourcePlanModal');
+
+  function openResourcePlanModal(data) {
+    selectedResource = data;
+    document.getElementById('selectedResourceTitle').textContent = data.title;
+    document.getElementById('selectedResourceCategory').textContent = data.category;
+    document.getElementById('selectedResourceSubject').textContent = data.subject || '-';
+    document.getElementById('resourcePlanDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('resourcePlanNote').value = '';
+    resourcePlanModal.classList.add('show');
+  }
+
+  function closeResourcePlanModal() {
+    resourcePlanModal.classList.remove('show');
+  }
+
+  document.querySelectorAll('.resource-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openResourcePlanModal({
+        title: btn.dataset.title,
+        subject: btn.dataset.subject,
+        category: btn.dataset.category,
+        link: btn.dataset.link
+      });
+    });
+  });
+
+  document.getElementById('closeResourceModalBtn').addEventListener('click', closeResourcePlanModal);
+  document.getElementById('cancelResourcePlanBtn').addEventListener('click', closeResourcePlanModal);
+
+  document.getElementById('saveResourcePlanBtn').addEventListener('click', async () => {
+    const task_date = document.getElementById('resourcePlanDate').value;
+    const note = document.getElementById('resourcePlanNote').value.trim();
+
+    if (!task_date) {
+      alert('Please select a date');
+      return;
+    }
+
+    const res = await fetch('/api/resources/add-to-study-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_date,
+        title: selectedResource.title,
+        subject: selectedResource.subject,
+        category: selectedResource.category,
+        resource_link: selectedResource.link,
+        note
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert('Resource added to study planner successfully');
+      closeResourcePlanModal();
+    } else {
+      alert(data.error || 'Failed to add resource');
+    }
+  });
+</script>
+<div class="footer-bar">
+  Developed by Chippa Likhitha
+</div>
+</body>
+</html>

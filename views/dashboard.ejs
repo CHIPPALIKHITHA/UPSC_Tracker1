@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard</title>
+<link rel="stylesheet" href="/styles/main.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- SECTION 1 & 2 : SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo">
+      <img src="/images/emblem.png" class="emblem">
+      <h2>UPSC Tracker</h2>
+    </div>
+
+    <ul>
+  <li class="<%= (currentPage === 'dashboard') ? 'active' : '' %>">
+    <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+  </li>
+  <li class="<%= (currentPage === 'syllabus') ? 'active' : '' %>">
+    <a href="/syllabus-tracker"><i class="fas fa-book"></i> Syllabus Tracker</a>
+  </li>
+  <li class="<%= (currentPage === 'planner') ? 'active' : '' %>">
+    <a href="/study-planner"><i class="fas fa-calendar"></i> Study Planner</a>
+  </li>
+  <li class="<%= (currentPage === 'resources') ? 'active' : '' %>">
+    <a href="/resources"><i class="fas fa-folder"></i> Resources</a>
+  </li>
+</ul>
+
+    <div class="bottom-menu">
+        <%- include('settings') %>
+        <li onclick="window.location.href='/logout'">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </li>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- SECTION 3 : TOP BAR -->
+    <div class="topbar">
+      <h2>Welcome, <%= userName %>!</h2>
+      <p><%= quote %></p>
+    </div>
+
+    <!-- SECTION 4 : COUNTDOWN -->
+    <div class="cards">
+      <div class="card orange">
+        <h3>Prelims</h3>
+        <p><b><%= prelimDays %></b> days left</p>
+      </div>
+
+      <div class="card green">
+        <h3>Mains</h3>
+        <p><b><%= mainsDays %></b> days left</p>
+      </div>
+
+      <div class="card blue">
+        <h3>Interview</h3>
+        <p><b><%= interviewDays %></b> days left</p>
+      </div>
+    </div>
+
+        <!-- CONSISTENCY TRACKER BELOW COUNTDOWN -->
+    <div class="consistency consistency-horizontal">
+      <div class="consistency-row">
+        <div class="consistency-title-block">
+          <h3><b>Consistency Tracker</b></h3>
+          <div class="streak-inline">
+            <span>Current Streak:</span>
+            <strong><%= consistency.streak %> days</strong>
+          </div>
+        </div>
+
+        <div class="consistency-bar-area">
+          <div class="progress-bg">
+            <div class="progress-fill" style="width: <%= consistency.score %>%;"></div>
+          </div>
+          <span class="progress-text"><%= consistency.score %>%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TODAY TARGET + SUBJECT PROGRESS SIDE BY SIDE -->
+    <div class="dashboard-bottom-grid">
+
+      <!-- TODAY TARGET -->
+      <div class="targets">
+        <div class="targets-header">
+          <h3 id="dashboardTargetHeading">Today's Target</h3>
+        </div>
+
+        <div id="dashboardTargetsList">
+          <% if (targets.length === 0) { %>
+            <div class="empty-target-state">
+              <p>No tasks for today.</p>
+            </div>
+          <% } %>
+
+          <% targets.forEach(t => { %>
+            <div class="dashboard-target-item" style="border-left: 6px solid <%= t.color || '#2563eb' %>;">
+              <label class="dashboard-target-line">
+                <input
+                  type="checkbox"
+                  class="dashboard-target-checkbox"
+                  data-id="<%= t.id %>"
+                  <%= t.done ? 'checked' : '' %>
+                >
+                <div class="dashboard-target-content">
+                  <span class="dashboard-target-topic <%= t.done ? 'completed' : '' %>">
+                    <%= t.topic %>
+                  </span>
+
+                  <div class="dashboard-target-meta">
+                    <span><strong>Subject:</strong> <%= t.subject || '-' %></span>
+                    <span><strong>Time:</strong> <%= t.start_time || '-' %> - <%= t.end_time || '-' %></span>
+                  </div>
+                </div>
+              </label>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+      <!-- SUBJECT PROGRESS -->
+      <div class="subjects dashboard-overview-card">
+        <div class="dashboard-subjects-header">
+          <h3>Subject Progress</h3>
+
+          <div class="dashboard-overview-toggle">
+            <button id="dashboardPrelimsBtn" class="active" type="button">Prelims</button>
+            <button id="dashboardMainsBtn" type="button">Mains</button>
+          </div>
+        </div>
+
+        <div id="dashboardOverviewContainer"></div>
+      </div>
+
+    </div>
+<script>
+  let dashboardTodayDate = new Date().toISOString().split('T')[0];
+
+  function formatDashboardDateHeading() {
+    const now = new Date();
+    const formatted = now.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+
+    document.getElementById('dashboardTargetHeading').textContent = `Today's Target (${formatted})`;
+  }
+
+  async function loadDashboardTodayTargets() {
+    const res = await fetch('/api/today-targets');
+    const targets = await res.json();
+
+    const list = document.getElementById('dashboardTargetsList');
+    list.innerHTML = '';
+
+    if (!targets.length) {
+      list.innerHTML = `
+        <div class="empty-target-state">
+          <p>No tasks for today.</p>
+        </div>
+      `;
+      attachDashboardCheckboxEvents();
+      return;
+    }
+
+    targets.forEach(t => {
+      const item = document.createElement('div');
+      item.className = 'dashboard-target-item';
+      item.style.borderLeft = `6px solid ${t.color || '#2563eb'}`;
+
+      item.innerHTML = `
+        <label class="dashboard-target-line">
+          <input
+            type="checkbox"
+            class="dashboard-target-checkbox"
+            data-id="${t.id}"
+            ${t.done ? 'checked' : ''}
+          >
+          <div class="dashboard-target-content">
+            <span class="dashboard-target-topic ${t.done ? 'completed' : ''}">
+              ${t.topic}
+            </span>
+            <div class="dashboard-target-meta">
+              <span><strong>Subject:</strong> ${t.subject || '-'}</span>
+              <span><strong>Time:</strong> ${t.start_time || '-'} - ${t.end_time || '-'}</span>
+            </div>
+          </div>
+        </label>
+      `;
+
+      list.appendChild(item);
+    });
+
+    attachDashboardCheckboxEvents();
+  }
+
+  function attachDashboardCheckboxEvents() {
+    document.querySelectorAll('.dashboard-target-checkbox').forEach(input => {
+      input.addEventListener('change', async () => {
+        await fetch('/api/study-planner/tasks/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: input.dataset.id,
+            done: input.checked
+          })
+        });
+
+        await loadDashboardTodayTargets();
+      });
+    });
+  }
+
+  function watchDashboardDateChange() {
+    setInterval(async () => {
+      const currentDate = new Date().toISOString().split('T')[0];
+
+      if (currentDate !== dashboardTodayDate) {
+        dashboardTodayDate = currentDate;
+        formatDashboardDateHeading();
+        await loadDashboardTodayTargets();
+      }
+    }, 30000);
+  }
+
+  const dashboardOverviewData = <%- JSON.stringify(overviewData) %>;
+  let dashboardCurrentCategory = 'prelims';
+  let dashboardUserProgress = {};
+
+  const dashboardOverviewContainer = document.getElementById('dashboardOverviewContainer');
+  const dashboardPrelimsBtn = document.getElementById('dashboardPrelimsBtn');
+  const dashboardMainsBtn = document.getElementById('dashboardMainsBtn');
+
+  async function loadDashboardSyllabusProgress() {
+    try {
+      const res = await fetch('/api/syllabus-progress');
+      const data = await res.json();
+      dashboardUserProgress = data || {};
+      renderDashboardOverview(dashboardOverviewData[dashboardCurrentCategory], dashboardCurrentCategory);
+    } catch (err) {
+      console.error('Error loading dashboard syllabus progress:', err);
+      dashboardUserProgress = {};
+      renderDashboardOverview(dashboardOverviewData[dashboardCurrentCategory], dashboardCurrentCategory);
+    }
+  }
+
+  function renderDashboardOverview(data, currentCategory) {
+    dashboardOverviewContainer.innerHTML = '';
+
+    for (let paper in data) {
+      const categoryBlock = document.createElement('div');
+      categoryBlock.className = 'overview-category-block';
+
+      const categoryHeading = document.createElement('h3');
+      categoryHeading.className = 'overview-category-heading';
+      categoryHeading.textContent = paper;
+      categoryBlock.appendChild(categoryHeading);
+
+      for (let subject in data[paper]) {
+        const topics = data[paper][subject];
+        const total = topics.length;
+
+        let completed = 0;
+        topics.forEach(topic => {
+          if (
+            dashboardUserProgress[currentCategory] &&
+            dashboardUserProgress[currentCategory][paper] &&
+            dashboardUserProgress[currentCategory][paper][topic] === true
+          ) {
+            completed++;
+          }
+        });
+
+        const percent = total ? Math.round((completed / total) * 100) : 0;
+
+        const row = document.createElement('div');
+        row.className = 'overview-subject-row';
+
+        const name = document.createElement('div');
+        name.className = 'overview-subject-name';
+        name.textContent = subject;
+
+        const barWrap = document.createElement('div');
+        barWrap.className = 'overview-progress-wrap';
+
+        const barBg = document.createElement('div');
+        barBg.className = 'overview-progress-bg';
+
+        const barFill = document.createElement('div');
+        barFill.className = 'overview-progress-fill';
+        barFill.style.width = percent + '%';
+
+        barBg.appendChild(barFill);
+
+        const percentText = document.createElement('div');
+        percentText.className = 'overview-progress-text';
+        percentText.textContent = percent + '%';
+
+        barWrap.appendChild(barBg);
+        barWrap.appendChild(percentText);
+
+        row.appendChild(name);
+        row.appendChild(barWrap);
+
+        categoryBlock.appendChild(row);
+      }
+
+      dashboardOverviewContainer.appendChild(categoryBlock);
+    }
+  }
+
+  dashboardPrelimsBtn.addEventListener('click', () => {
+    dashboardCurrentCategory = 'prelims';
+    dashboardPrelimsBtn.classList.add('active');
+    dashboardMainsBtn.classList.remove('active');
+    renderDashboardOverview(dashboardOverviewData[dashboardCurrentCategory], dashboardCurrentCategory);
+  });
+
+  dashboardMainsBtn.addEventListener('click', () => {
+    dashboardCurrentCategory = 'mains';
+    dashboardMainsBtn.classList.add('active');
+    dashboardPrelimsBtn.classList.remove('active');
+    renderDashboardOverview(dashboardOverviewData[dashboardCurrentCategory], dashboardCurrentCategory);
+  });
+
+  formatDashboardDateHeading();
+  attachDashboardCheckboxEvents();
+  watchDashboardDateChange();
+  loadDashboardSyllabusProgress();
+</script>
+<div class="footer-bar">
+  Developed by Chippa Likhitha
+</div>
+<% if (showNotificationPopup) { %>
+  <div id="notificationPopup" class="notification-popup">
+    <div class="notification-popup-content">
+      <h3>Email Notifications</h3>
+      <p>Do you want to receive daily email notifications about your tasks and one essay topic for the day?</p>
+      <div class="popup-actions">
+        <button onclick="saveNotificationPreference(true)" class="popup-btn yes-btn">Yes</button>
+        <button onclick="saveNotificationPreference(false)" class="popup-btn no-btn">No</button>
+      </div>
+    </div>
+  </div>
+<% } %>
+
+<script>
+  async function saveNotificationPreference(enable) {
+    try {
+      const response = await fetch('/save-notification-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enableNotifications: enable })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const popup = document.getElementById('notificationPopup');
+        if (popup) popup.style.display = 'none';
+      } else {
+        alert('Could not save preference');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Something went wrong');
+    }
+  }
+</script>
+</body>
+</html>
