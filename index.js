@@ -15,19 +15,21 @@ const cron = require("node-cron");
 const multer = require("multer");
 const fs = require("fs");
 
-console.log(
-  "ENV keys loaded:",
-  Object.keys(process.env).filter(
-    (k) =>
-      k.includes("DATABASE") ||
-      k.includes("DB") ||
-      k.includes("OPENAI") ||
-      k.includes("GNEWS") ||
-      k.includes("SESSION") ||
-      k.includes("EMAIL") ||
-      k.includes("GOOGLE")
-  )
-);
+if (NODE_ENV !== "production") {
+  console.log(
+    "ENV keys loaded:",
+    Object.keys(process.env).filter(
+      (k) =>
+        k.includes("DATABASE") ||
+        k.includes("DB") ||
+        k.includes("OPENAI") ||
+        k.includes("GNEWS") ||
+        k.includes("SESSION") ||
+        k.includes("EMAIL") ||
+        k.includes("GOOGLE")
+    )
+  );
+}
 
 const app = express();
 
@@ -671,11 +673,6 @@ function formatMainsPaperName(paper) {
   return mapping[paper] || paper;
 }
 
-// Format mains topic text
-function formatMainsTopic(row) {
-  return row.topic || "Untitled Topic";
-}
-
 // Format prelims topic text
 function formatPrelimsTopic(row) {
   if (row.subject && row.topic) {
@@ -727,7 +724,7 @@ async function getPrelimsData() {
 // Fetch mains syllabus + overview
 async function getMainsData() {
   const result = await pool.query(`
-    SELECT id, paper, topic
+    SELECT id, paper, section_no, section_name, topic, subtopic
     FROM mains_topics
     ORDER BY
       CASE
@@ -737,6 +734,7 @@ async function getMainsData() {
         WHEN paper = 'GS IV' THEN 4
         ELSE 5
       END,
+      section_no NULLS LAST,
       id
   `);
 
@@ -745,20 +743,14 @@ async function getMainsData() {
 
   result.rows.forEach((row) => {
     const paper = formatMainsPaperName(row.paper);
-    const subject = row.topic || "General";
+    const subject = row.section_name || row.topic || "General";
     const formattedTopic = formatMainsTopic(row);
 
-    if (!checklist[paper]) {
-      checklist[paper] = [];
-    }
+    if (!checklist[paper]) checklist[paper] = [];
     checklist[paper].push(formattedTopic);
 
-    if (!overview[paper]) {
-      overview[paper] = {};
-    }
-    if (!overview[paper][subject]) {
-      overview[paper][subject] = [];
-    }
+    if (!overview[paper]) overview[paper] = {};
+    if (!overview[paper][subject]) overview[paper][subject] = [];
     overview[paper][subject].push(formattedTopic);
   });
 
