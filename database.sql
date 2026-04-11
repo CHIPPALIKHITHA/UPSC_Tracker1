@@ -268,22 +268,114 @@ ON CONFLICT DO NOTHING;
 -- =========================================
 -- SAMPLE MAINS TOPICS
 -- =========================================
-INSERT INTO mains_topics (paper, topic) VALUES
-('GS I', 'Indian Heritage and Culture'),
-('GS I', 'History'),
-('GS I', 'Geography of the World'),
-('GS I', 'Society'),
-('GS II', 'Governance'),
-('GS II', 'Constitution'),
-('GS II', 'Polity'),
-('GS II', 'Social Justice'),
-('GS II', 'International Relations'),
-('GS III', 'Technology'),
-('GS III', 'Economic Development'),
-('GS III', 'Bio-diversity'),
-('GS III', 'Environment'),
-('GS III', 'Security and Disaster Management'),
-('GS IV', 'Ethics'),
-('GS IV', 'Integrity'),
-('GS IV', 'Aptitude')
-ON CONFLICT DO NOTHING;
+INSERT INTO mains_topics (paper, section_no, section_name, topic, subtopic) VALUES
+
+-- =========================
+-- GS I
+-- =========================
+('GS I', 1, 'Indian Heritage and Culture', 'Art Forms', 'Classical dances of India'),
+('GS I', 1, 'Indian Heritage and Culture', 'Art Forms', 'Indian music traditions'),
+('GS I', 1, 'Indian Heritage and Culture', 'Literature', 'Ancient to modern Indian literature'),
+('GS I', 1, 'Indian Heritage and Culture', 'Architecture', 'Temple, Mughal and colonial architecture'),
+
+('GS I', 2, 'History', 'Modern Indian History', 'Significant events from 18th century onwards'),
+('GS I', 2, 'History', 'Freedom Struggle', 'Important stages and leaders'),
+('GS I', 2, 'History', 'Post Independence', 'Consolidation and reorganization of India'),
+
+('GS I', 3, 'World History', 'Major Events', 'Industrial Revolution'),
+('GS I', 3, 'World History', 'Major Events', 'World Wars'),
+('GS I', 3, 'World History', 'Political Philosophies', 'Capitalism'),
+('GS I', 3, 'World History', 'Political Philosophies', 'Socialism'),
+('GS I', 3, 'World History', 'Political Philosophies', 'Communism'),
+
+('GS I', 4, 'Society', 'Indian Society', 'Diversity of India'),
+('GS I', 4, 'Society', 'Social Issues', 'Women and women organizations'),
+('GS I', 4, 'Society', 'Social Issues', 'Population and poverty'),
+('GS I', 4, 'Society', 'Social Issues', 'Urbanization and problems'),
+('GS I', 4, 'Society', 'Social Issues', 'Globalization impact'),
+('GS I', 4, 'Society', 'Social Issues', 'Communalism and secularism'),
+
+('GS I', 5, 'Geography', 'Physical Geography', 'World physical geography'),
+('GS I', 5, 'Geography', 'Resources', 'Natural resources distribution'),
+('GS I', 5, 'Geography', 'Geophysical Phenomena', 'Earthquakes'),
+('GS I', 5, 'Geography', 'Geophysical Phenomena', 'Cyclones'),
+('GS I', 5, 'Geography', 'Geophysical Phenomena', 'Tsunami'),
+
+-- =========================
+-- GS II
+-- =========================
+('GS II', 1, 'Constitution', 'Indian Constitution', 'Historical background'),
+('GS II', 1, 'Constitution', 'Indian Constitution', 'Features and amendments'),
+('GS II', 1, 'Constitution', 'Indian Constitution', 'Basic structure'),
+
+('GS II', 2, 'Polity', 'Federal Structure', 'Union and State relations'),
+('GS II', 2, 'Polity', 'Parliament', 'Structure and functioning'),
+('GS II', 2, 'Polity', 'Judiciary', 'Structure and powers'),
+('GS II', 2, 'Polity', 'Representation', 'Representation of People Act'),
+
+('GS II', 3, 'Governance', 'Constitutional Bodies', 'Election Commission'),
+('GS II', 3, 'Governance', 'Constitutional Bodies', 'Finance Commission'),
+('GS II', 3, 'Governance', 'Policies', 'Government schemes'),
+('GS II', 3, 'Governance', 'Governance', 'Transparency and accountability'),
+('GS II', 3, 'Governance', 'Governance', 'E-governance'),
+
+('GS II', 4, 'Social Justice', 'Welfare Schemes', 'Schemes for vulnerable sections'),
+('GS II', 4, 'Social Justice', 'Development Issues', 'Health'),
+('GS II', 4, 'Social Justice', 'Development Issues', 'Education'),
+('GS II', 4, 'Social Justice', 'Development Issues', 'Poverty and hunger'),
+
+('GS II', 5, 'International Relations', 'India and Neighbours', 'Bilateral relations'),
+('GS II', 5, 'International Relations', 'Global Institutions', 'UN and other agencies'),
+
+-- =========================
+-- GS III
+-- =========================
+('GS III', 1, 'Economic Development', 'Indian Economy', 'Planning and growth'),
+('GS III', 1, 'Economic Development', 'Indian Economy', 'Employment'),
+('GS III', 1, 'Economic Development', 'Inclusive Growth', 'Inclusive development'),
+('GS III', 1, 'Economic Development', 'Budgeting', 'Government budgeting'),
+
+('GS III', 2, 'Agriculture', 'Cropping Patterns', 'Major crops'),
+('GS III', 2, 'Agriculture', 'Irrigation', 'Irrigation systems'),
+('GS III', 2, 'Agriculture', 'Food Security', 'PDS and buffer stocks'),
+('GS III', 2, 'Agriculture', 'Land Reforms', 'Land reforms in India'),
+
+('GS III', 3, 'Infrastructure', 'Infrastructure', 'Energy'),
+('GS III', 3, 'Infrastructure', 'Infrastructure', 'Roads'),
+('GS III', 3, 'Infrastructure', 'Infrastructure', 'Railways'),
+('GS III', 3, 'Infrastructure', 'Infrastructure', 'Ports and airports'),
+
+('GS III', 4, 'Science and Technology', 'Technology', 'IT and computers'),
+('GS III', 4, 'Science and Technology', 'Technology', 'Robotics'),
+('GS III', 4, 'Science and Technology', 'Technology', 'Biotechnology'),
+('GS III', 4, 'Science and Technology', 'Technology', 'Space technology'),
+
+('GS III', 5, 'Environment', 'Environmental Issues', 'Pollution'),
+('GS III', 5, 'Environment', 'Environmental Issues', 'Biodiversity'),
+('GS III', 5, 'Environment', 'Environmental Issues', 'Climate change'),
+
+('GS III', 6, 'Disaster Management', 'Disasters', 'Natural disasters'),
+('GS III', 6, 'Disaster Management', 'Disasters', 'Disaster response'),
+
+('GS III', 7, 'Internal Security', 'Security Challenges', 'Cyber security'),
+('GS III', 7, 'Internal Security', 'Security Challenges', 'Terrorism'),
+('GS III', 7, 'Internal Security', 'Security Challenges', 'Border management'),
+
+-- =========================
+-- GS IV
+-- =========================
+('GS IV', 1, 'Ethics', 'Ethics and Human Interface', 'Dimensions of ethics'),
+('GS IV', 1, 'Ethics', 'Human Values', 'Values from leaders and reformers'),
+
+('GS IV', 2, 'Attitude', 'Attitude', 'Structure and function'),
+('GS IV', 2, 'Attitude', 'Attitude', 'Moral attitudes'),
+
+('GS IV', 3, 'Aptitude', 'Civil Services Aptitude', 'Integrity'),
+('GS IV', 3, 'Aptitude', 'Civil Services Aptitude', 'Impartiality'),
+('GS IV', 3, 'Aptitude', 'Civil Services Aptitude', 'Empathy'),
+
+('GS IV', 4, 'Integrity', 'Public Administration', 'Ethics in governance'),
+('GS IV', 4, 'Integrity', 'Public Administration', 'Probity in governance'),
+('GS IV', 4, 'Integrity', 'Public Administration', 'Citizen charter'),
+
+('GS IV', 5, 'Case Studies', 'Practical Ethics', 'Case study practice');

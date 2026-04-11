@@ -14,23 +14,6 @@ const nodemailer = require("nodemailer");
 const cron = require("node-cron");
 const multer = require("multer");
 const fs = require("fs");
-
-if (NODE_ENV !== "production") {
-  console.log(
-    "ENV keys loaded:",
-    Object.keys(process.env).filter(
-      (k) =>
-        k.includes("DATABASE") ||
-        k.includes("DB") ||
-        k.includes("OPENAI") ||
-        k.includes("GNEWS") ||
-        k.includes("SESSION") ||
-        k.includes("EMAIL") ||
-        k.includes("GOOGLE")
-    )
-  );
-}
-
 const app = express();
 
 const {
@@ -51,6 +34,23 @@ const {
   PORT
 } = process.env;
 
+
+if (NODE_ENV !== "production") {
+  console.log(
+    "ENV keys loaded:",
+    Object.keys(process.env).filter(
+      (k) =>
+        k.includes("DATABASE") ||
+        k.includes("DB") ||
+        k.includes("OPENAI") ||
+        k.includes("GNEWS") ||
+        k.includes("SESSION") ||
+        k.includes("EMAIL") ||
+        k.includes("GOOGLE")
+    )
+  );
+}
+
 // ================= OPENAI =================
 let openai = null;
 
@@ -63,12 +63,19 @@ if (OPENAI_API_KEY) {
 }
 
 // ================= POSTGRESQL CONNECTION =================
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL
-    ? { rejectUnauthorized: false }
-    : false
-});
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    })
+  : new Pool({
+      user: process.env.DB_USER,
+      host: process.env.DB_HOST,
+      database: process.env.DB_NAME,
+      password: process.env.DB_PASSWORD,
+      port: Number(process.env.DB_PORT),
+      ssl: false
+    });
 
 // Test DB
 pool.connect((err, client, release) => {
@@ -661,25 +668,6 @@ function formatPrelimsTopic(row) {
 
 // Convert GS I -> General Studies I
 //============= Syllabus tracker =====================
-
-// Convert GS I -> General Studies I
-function formatMainsPaperName(paper) {
-  const mapping = {
-    "GS I": "General Studies I",
-    "GS II": "General Studies II",
-    "GS III": "General Studies III",
-    "GS IV": "General Studies IV"
-  };
-  return mapping[paper] || paper;
-}
-
-// Format prelims topic text
-function formatPrelimsTopic(row) {
-  if (row.subject && row.topic) {
-    return `${row.subject} - ${row.topic}`;
-  }
-  return row.subject || row.topic || "Untitled Topic";
-}
 
 // Fetch prelims syllabus + overview
 async function getPrelimsData() {
