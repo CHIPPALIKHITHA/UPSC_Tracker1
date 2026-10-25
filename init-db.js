@@ -26,9 +26,12 @@ async function initDb() {
     console.log("Database tables created successfully.");
   } catch (err) {
     console.error("Error initializing database:", err.message);
+    process.exitCode = 1;
   } finally {
     await pool.end();
   }
 }
 
 initDb();
+
+

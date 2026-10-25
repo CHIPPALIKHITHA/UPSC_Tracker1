@@ -30,6 +30,7 @@ const {
   GOOGLE_CLIENT_SECRET,
   GOOGLE_REDIRECT_URI,
   SESSION_SECRET,
+  CRON_SECRET,
   NODE_ENV,
   PORT
 } = process.env;
@@ -77,6 +78,42 @@ const pool = process.env.DATABASE_URL
       ssl: false
     });
 
+class PostgresSessionStore extends session.Store {
+  constructor(pool) { super(); this.pool = pool; }
+  get(sid, callback) {
+    this.pool.query("SELECT sess, expire FROM app_sessions WHERE sid = $1", [sid])
+      .then(({ rows }) => {
+        if (!rows.length || new Date(rows[0].expire) <= new Date()) {
+          if (rows.length) this.destroy(sid, () => {});
+          return callback(null, null);
+        }
+        callback(null, rows[0].sess);
+      }).catch(callback);
+  }
+  set(sid, sess, callback) {
+    const expires = sess.cookie?.expires ? new Date(sess.cookie.expires) : new Date(Date.now() + (sess.cookie?.maxAge || 86400000));
+    this.pool.query(
+      `INSERT INTO app_sessions (sid, sess, expire) VALUES ($1, $2, $3)
+       ON CONFLICT (sid) DO UPDATE SET sess = EXCLUDED.sess, expire = EXCLUDED.expire`,
+      [sid, JSON.stringify(sess), expires]
+    ).then(() => callback?.(null)).catch((err) => callback?.(err));
+  }
+  destroy(sid, callback) {
+    this.pool.query("DELETE FROM app_sessions WHERE sid = $1", [sid])
+      .then(() => callback?.(null)).catch((err) => callback?.(err));
+  }
+  touch(sid, sess, callback) {
+    const expires = sess.cookie?.expires ? new Date(sess.cookie.expires) : new Date(Date.now() + (sess.cookie?.maxAge || 86400000));
+    this.pool.query("UPDATE app_sessions SET expire = $2 WHERE sid = $1", [sid, expires])
+      .then(() => callback?.(null)).catch((err) => callback?.(err));
+  }
+}
+
+let schemaPromise;
+async function ensureSchema() {
+  if (!schemaPromise) schemaPromise = pool.query(fs.readFileSync(path.join(__dirname, "database.sql"), "utf8"));
+  try { await schemaPromise; } catch (err) { schemaPromise = undefined; throw err; }
+}
 // Test DB
 pool.connect((err, client, release) => {
   if (err) {
@@ -103,21 +140,26 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/styles", express.static(path.join(__dirname, "styles")));
 
 app.set("trust proxy", 1);
+app.get("/health", (_req, res) => res.status(200).send("ok"));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-app.use(
-  session({
-    secret: SESSION_SECRET || "temporary_local_secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24
-    }
-  })
-);
+app.use(async (_req, _res, next) => {
+  try { await ensureSchema(); next(); } catch (err) { next(err); }
+});
+
+app.use(session({
+  store: new PostgresSessionStore(pool),
+  secret: SESSION_SECRET || "temporary_local_secret",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 24
+  }
+}));
 
 // ================= RSS PARSER =================
 const parser = new Parser({
@@ -128,7 +170,7 @@ const parser = new Parser({
 });
 
 // ================= FILE UPLOAD SETUP =================
-const notesUploadPath = path.join(__dirname, "public", "pdfs", "uploaded_notes");
+const notesUploadPath = process.env.VERCEL ? path.join("/tmp", "upsc-tracker-uploaded-notes") : path.join(__dirname, "public", "pdfs", "uploaded_notes");
 
 if (!fs.existsSync(notesUploadPath)) {
   fs.mkdirSync(notesUploadPath, { recursive: true });
@@ -1687,47 +1729,26 @@ app.post("/save-notification-preference", checkAuth, async (req, res) => {
   }
 });
 
-cron.schedule("0 7 * * *", async () => {
-  try {
-    console.log("Running daily essay notification job...");
-
-    const usersResult = await pool.query(
-      `SELECT email, first_name
-       FROM details
-       WHERE email_notifications = TRUE`
-    );
-
-    for (const user of usersResult.rows) {
-      try {
-        const topic = await getNextEssayTopic(user.email);
-
-        if (!topic) continue;
-
-        await transporter.sendMail({
-          from: EMAIL_USER,
-          to: user.email,
-          subject: "Your Daily UPSC Essay Topic",
-          html: `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-              <h2>Hello ${user.first_name || "Aspirant"},</h2>
-              <p>Here is your essay topic for today:</p>
-              <div style="padding: 12px; background: #f4f7fb; border-left: 4px solid #1d4ed8; margin: 12px 0;">
-                <strong>${topic}</strong>
-              </div>
-              <p>Stay consistent with your UPSC preparation.</p>
-              <p>Best wishes,<br>UPSC Tracker</p>
-            </div>
-          `
-        });
-
-        console.log(`Essay email sent to ${user.email}`);
-      } catch (userErr) {
-        console.error(`Failed for ${user.email}:`, userErr.message);
-      }
-    }
-  } catch (err) {
-    console.error("Daily essay cron error:", err);
+async function sendDailyEssayEmails() {
+  console.log("Running daily essay notification job...");
+  const usersResult = await pool.query(`SELECT email, first_name FROM details WHERE email_notifications = TRUE`);
+  for (const user of usersResult.rows) {
+    try {
+      const topic = await getNextEssayTopic(user.email);
+      if (!topic) continue;
+      await transporter.sendMail({
+        from: EMAIL_USER, to: user.email, subject: "Your Daily UPSC Essay Topic",
+        html: `<div style="font-family: Arial, sans-serif; line-height: 1.6;"><h2>Hello ${user.first_name || "Aspirant"},</h2><p>Here is your essay topic for today:</p><div style="padding: 12px; background: #f4f7fb; border-left: 4px solid #1d4ed8; margin: 12px 0;"><strong>${topic}</strong></div><p>Stay consistent with your UPSC preparation.</p><p>Best wishes,<br>UPSC Tracker</p></div>`
+      });
+      console.log(`Essay email sent to ${user.email}`);
+    } catch (userErr) { console.error(`Failed for ${user.email}:`, userErr.message); }
   }
+}
+
+app.get("/api/cron/daily-essay", async (req, res) => {
+  if (!CRON_SECRET || req.get("authorization") !== `Bearer ${CRON_SECRET}`) return res.status(401).json({ success: false, message: "Unauthorized" });
+  try { await sendDailyEssayEmails(); res.json({ success: true }); }
+  catch (err) { console.error("Daily essay cron error:", err); res.status(500).json({ success: false }); }
 });
 
 app.get("/auth/google", checkAuth, (req, res) => {
@@ -1829,8 +1850,25 @@ app.post("/settings/save", checkAuth, async (req, res) => {
 });
 
 // ================= SERVER =================
-const APP_PORT = PORT || 3000;
+if (process.env.VERCEL && !process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set on Vercel.");
+}
 
-app.listen(APP_PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${APP_PORT}`);
-});
+if (NODE_ENV === "production" && !SESSION_SECRET) {
+  throw new Error("SESSION_SECRET must be set in production.");
+}
+
+const APP_PORT = PORT || 3000;
+async function startServer() {
+  try {
+    await ensureSchema();
+    console.log("Database schema is ready.");
+    app.listen(APP_PORT, "0.0.0.0", () => console.log(`Server running on port ${APP_PORT}`));
+  } catch (err) {
+    console.error("Unable to initialize the database:", err.message);
+    process.exit(1);
+  }
+}
+if (process.env.VERCEL) module.exports = app;
+else startServer();
+

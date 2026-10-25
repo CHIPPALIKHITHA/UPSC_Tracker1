@@ -379,3 +379,11 @@ INSERT INTO mains_topics (paper, section_no, section_name, topic, subtopic) VALU
 ('GS IV', 4, 'Integrity', 'Public Administration', 'Citizen charter'),
 
 ('GS IV', 5, 'Case Studies', 'Practical Ethics', 'Case study practice');
+-- Persistent sessions for horizontally scaled/serverless deployments.
+CREATE TABLE IF NOT EXISTS app_sessions (
+    sid TEXT PRIMARY KEY,
+    sess JSONB NOT NULL,
+    expire TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS app_sessions_expire_idx ON app_sessions(expire);
+
